@@ -13,13 +13,13 @@ from struct import pack
 
 app = Flask(__name__)
 app.config.update(dict(
-    DEBUG=True,
+#    DEBUG=True,
     SECRET_KEY='4th',
     USE_X_SENDFILE=False,
     SESSION_COOKIE_NAME='st',
     ANNOUNCE_INTERVAL=600,
     ALLOW_MISSING_INFOHASH=True,
-    LISTEN_PORT=3008,
+    LISTEN_PORT=80,
     LISTEN_HOST='0.0.0.0',
 ))
 
@@ -65,17 +65,37 @@ def get_info_hash(multiple=False):
 from redis import StrictRedis
 redis = StrictRedis(host='localhost', port=6379, db=4)
 
+@app.template_filter('ts2dt')
+def ts2dt(ts):
+    import datetime
+    return datetime.datetime.fromtimestamp(1483856485608/1000).strftime('%Y-%m-%d %H:%M:%S')
+
 
 @app.route("/")
 @app.route("/torrents")
-def hello():
+def list_torrents():
     torrents = []
     fields = 'name created_at downloaded complete incomplete filename'.split()
     for info_hash in redis.smembers(rk_torrents):
         update_torrent(info_hash)
         info = dict(zip(fields, redis.hmget(fmt_rk_torrent.format(info_hash), *fields))) 
+        info['hash'] = info_hash
         torrents.append(info)
-    return json.dumps(torrents)
+    if 'json' in request.args:
+        return json.dumps(torrents)
+    return render_template('torrents.html', **locals())
+
+@app.route("/torrent/<info_hash>")
+def show_torrent(info_hash):
+    fields = 'name created_at downloaded complete incomplete filename'.split()
+    update_torrent(info_hash)
+    info = dict(zip(fields, redis.hmget(fmt_rk_torrent.format(info_hash), *fields))) 
+    info['hash'] = info_hash
+    seed_set_key  = fmt_rk_torrent_seed.format(info_hash)
+    leech_set_key  = fmt_rk_torrent_leech.format(info_hash)
+    info['seeders'] = [redis.hgetall(get_rk_peer(_)) for _ in redis.smembers(seed_set_key)]
+    info['leechers'] = [redis.hgetall(get_rk_peer(_)) for _ in redis.smembers(leech_set_key)]
+    return json.dumps(info)
 
 def update_torrent(info_hash):
     torrent_key = fmt_rk_torrent.format(info_hash)
@@ -106,7 +126,7 @@ def media(path):
 
 from werkzeug.utils import secure_filename
 @app.route('/upload', methods=['GET', 'POST'])
-def upload_file():
+def upload_torrent():
     if request.method == 'POST':
         status = True
         message = 'ok'
@@ -126,6 +146,7 @@ def upload_file():
                 'filename': torrent_file_path,
                 'created_at': int(time.time() * 1000),
             })
+        return redirect(url_for('list_torrents'))
         return json.dumps(dict(status=status, message=message))
     return render_template('upload.html')
 
@@ -154,6 +175,7 @@ def announce():
             return babort('torrent {} not allowed'.format(info_hash))
     compact_mode = False
     compact_mode = request.args.get('compact', False, bool)
+    print 'compact_mode', compact_mode
     ip = client_ip()
     redis.hmset(rk_peer, {
         'ip': ip,
