@@ -1,0 +1,16 @@
+{% extends "layout.html" %} {% block body %}
+<form role="form" action="" enctype="multipart/form-data" method="POST" >
+<!--
+  <div class="form-group">
+    <label for="exampleInputEmail1">Email address</label>
+    <input type="email" class="form-control" id="exampleInputEmail1" placeholder="Enter email">
+  </div>
+-->
+  <div class="form-group">
+    <label for="torrent">种子</label>
+    <input type="file" id="torrent" name="torrent">
+    <p class="help-block"></p>
+  </div>
+  <button type="submit" class="btn btn-default">上传</button>
+</form>
+{% endblock %}
