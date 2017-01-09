@@ -4,6 +4,8 @@ yum makecache
 yum groupinstall -y 'development tools'
 yum install -y vim zlib-dev openssl-devel sqlite-devel bzip2-devel xz-libs supervisor epel-release
 yum install nginx
+chkconfig --level 345 nginx on
+chkconfig --level 345 supervisord on
 export PYTHON_VERSION=2.7.12
 wget http://ftp.osuosl.org/pub/blfs/conglomeration/Python/Python-${PYTHON_VERSION}.tar.xz
 #wget http://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tar.xz
